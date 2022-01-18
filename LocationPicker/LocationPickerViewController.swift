@@ -74,6 +74,8 @@ open class LocationPickerViewController: UIViewController {
 				searchBar.text = location.flatMap({ $0.title }) ?? ""
 				updateAnnotation()
 			}
+            
+            self.selectLocationButton?.isEnabled = self.location != nil
 		}
 	}
 	
@@ -89,6 +91,7 @@ open class LocationPickerViewController: UIViewController {
 	
 	var mapView: MKMapView!
 	var locationButton: UIButton?
+    var selectLocationButton: UIButton?
 	
 	lazy var results: LocationSearchResultsViewController = {
 		let results = LocationSearchResultsViewController()
@@ -141,6 +144,43 @@ open class LocationPickerViewController: UIViewController {
 			view.addSubview(button)
 			locationButton = button
 		}
+        
+        let selectLocationButton = UIButton(type: .system)
+        selectLocationButton.isEnabled = self.location != nil
+        selectLocationButton.layer.cornerRadius = 14
+        selectLocationButton.titleLabel?.font = UIFont.systemFont(
+            ofSize: 15,
+            weight: .semibold)
+        selectLocationButton.setTitle(selectButtonTitle, for: UIControl.State())
+        selectLocationButton.addTarget(
+            self,
+            action: #selector(selectLocationButtonClicked(_:)),
+            for: .touchUpInside)
+        
+        view.addSubview(selectLocationButton)
+        
+        // Update constraints.
+        selectLocationButton.translatesAutoresizingMaskIntoConstraints = false
+        selectLocationButton.heightAnchor.constraint(
+            equalToConstant: 50)
+            .isActive = true
+        selectLocationButton.bottomAnchor.constraint(
+            equalTo: self.view.safeAreaLayoutGuide.bottomAnchor, constant: -50)
+            .isActive = true
+        selectLocationButton.leadingAnchor.constraint(
+            equalTo: self.view.safeAreaLayoutGuide.leadingAnchor, constant: 30)
+            .isActive = true
+        selectLocationButton.trailingAnchor.constraint(
+            equalTo: self.view.safeAreaLayoutGuide.trailingAnchor, constant: -30)
+            .isActive = true
+        
+        let blur = UIVisualEffectView(effect: UIBlurEffect(
+            style: .regular))
+        blur.frame = selectLocationButton.bounds
+        blur.isUserInteractionEnabled = false
+        selectLocationButton.insertSubview(blur, at: 0)
+        
+        self.selectLocationButton = selectLocationButton
 	}
 	
 	open override func viewDidLoad() {
@@ -161,7 +201,7 @@ open class LocationPickerViewController: UIViewController {
         let locationSelectGesture = UILongPressGestureRecognizer(
             target: self, action: #selector(addLocation(_:)))
         locationSelectGesture.delegate = self
-		mapView.addGestureRecognizer(locationSelectGesture)
+        mapView.addGestureRecognizer(locationSelectGesture)
 
 		// search
         if #available(iOS 11.0, *) {
@@ -277,6 +317,20 @@ open class LocationPickerViewController: UIViewController {
             }
         }
     }
+    
+    // MARK: - Actions
+    
+    /// Occurs when the select location button has been clicked.
+    ///
+    /// - Parameter sender: The sender of the event.
+    @IBAction func selectLocationButtonClicked(_ sender: Any) {
+        completion?(location)
+        if let navigation = navigationController, navigation.viewControllers.count > 1 {
+            navigation.popViewController(animated: true)
+        } else {
+            presentingViewController?.dismiss(animated: true, completion: nil)
+        }
+    }
 }
 
 extension LocationPickerViewController: CLLocationManagerDelegate {
@@ -373,34 +427,11 @@ extension LocationPickerViewController: MKMapViewDelegate {
 	public func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
 		if annotation is MKUserLocation { return nil }
 		
-		let pin = MKPinAnnotationView(annotation: annotation, reuseIdentifier: "annotation")
-		pin.pinColor = .green
-		// drop only on long press gesture
-		let fromLongPress = annotation is MKPointAnnotation
-		pin.animatesDrop = fromLongPress
-		pin.rightCalloutAccessoryView = selectLocationButton()
-		pin.canShowCallout = !fromLongPress
-		return pin
-	}
-	
-	func selectLocationButton() -> UIButton {
-		let button = UIButton(frame: CGRect(x: 0, y: 0, width: 70, height: 30))
-		button.setTitle(selectButtonTitle, for: UIControl.State())
-        if let titleLabel = button.titleLabel {
-            let width = titleLabel.textRect(forBounds: CGRect(x: 0, y: 0, width: Int.max, height: 30), limitedToNumberOfLines: 1).width
-            button.frame.size = CGSize(width: width, height: 30.0)
-        }
-		button.setTitleColor(view.tintColor, for: UIControl.State())
-		return button
-	}
-	
-	public func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView, calloutAccessoryControlTapped control: UIControl) {
-		completion?(location)
-		if let navigation = navigationController, navigation.viewControllers.count > 1 {
-			navigation.popViewController(animated: true)
-		} else {
-			presentingViewController?.dismiss(animated: true, completion: nil)
-		}
+		let marker = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: "annotation")
+        marker.animatesWhenAdded = true
+        marker.tintColor = self.view.tintColor
+        
+		return marker
 	}
 	
 	public func mapView(_ mapView: MKMapView, didAdd views: [MKAnnotationView]) {
@@ -414,8 +445,11 @@ extension LocationPickerViewController: MKMapViewDelegate {
 }
 
 extension LocationPickerViewController: UIGestureRecognizerDelegate {
-    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        return true
+    public func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer)
+    -> Bool {
+        return gestureRecognizer.state != .ended
     }
 }
 
