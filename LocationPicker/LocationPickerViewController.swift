@@ -74,10 +74,6 @@ open class LocationPickerViewController: UIViewController {
 				searchBar.text = location.flatMap({ $0.title }) ?? ""
 				updateAnnotation()
 			}
-            
-            if self.selectLocationButton?.isHidden ?? false {
-                self.selectLocationButton?.isHidden = self.location == nil
-            }
 		}
 	}
 	
@@ -230,6 +226,7 @@ open class LocationPickerViewController: UIViewController {
 		if let location = location {
 			// present initial location if any
 			self.location = location
+            self.selectLocationButton?.isHidden = false
 			showCoordinates(location.coordinate, animated: false)
             return
 		} else if showCurrentLocationInitially || selectCurrentLocationInitially {
@@ -292,6 +289,7 @@ open class LocationPickerViewController: UIViewController {
 
                 // pass user selected location too
                 self.location = Location(name: name, location: location, placemark: placemark)
+                self.selectLocationButton?.isHidden = false
             }
         }
     }
@@ -376,6 +374,7 @@ extension LocationPickerViewController: UISearchResultsUpdating {
 		dismiss(animated: true) {
 			// set location, this also adds annotation
 			self.location = location
+            self.selectLocationButton?.isHidden = false
 			self.showCoordinates(location.coordinate)
 			
 			self.historyManager.addToHistory(location)
@@ -446,6 +445,7 @@ extension LocationPickerViewController: UISearchBarDelegate {
 		// remove location if user presses clear or removes text
 		if searchText.isEmpty {
 			location = nil
+            self.selectLocationButton?.isHidden = true
 			searchBar.text = " "
 		}
 	}
