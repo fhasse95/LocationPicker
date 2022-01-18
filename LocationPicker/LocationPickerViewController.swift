@@ -136,11 +136,10 @@ open class LocationPickerViewController: UIViewController {
         
         let selectLocationButton = UIButton(type: .system)
         selectLocationButton.isHidden = self.location == nil
+        selectLocationButton.backgroundColor = #colorLiteral(red: 0, green: 0.5882352941, blue: 0.5333333333, alpha: 1)
         
         selectLocationButton.layer.cornerRadius = 14
         selectLocationButton.layer.masksToBounds = true
-        
-        selectLocationButton.backgroundColor = self.view.tintColor
         
         selectLocationButton.titleLabel?.font = UIFont.systemFont(
             ofSize: 15,
@@ -428,7 +427,7 @@ extension LocationPickerViewController: UIGestureRecognizerDelegate {
         _ gestureRecognizer: UIGestureRecognizer,
         shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer)
     -> Bool {
-        return false
+        return true
     }
 }
 
