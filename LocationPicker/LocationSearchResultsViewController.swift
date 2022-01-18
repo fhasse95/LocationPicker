@@ -18,6 +18,12 @@ class LocationSearchResultsViewController: UITableViewController {
 	override func viewDidLoad() {
 		super.viewDidLoad()
 		extendedLayoutIncludesOpaqueBars = true
+        
+        // On iOS 15, we remove the section header
+        // top padding of the table view.
+        if #available(iOS 15.0, *) {
+            self.tableView.sectionHeaderTopPadding = 0
+        }
 	}
 	
 	override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {

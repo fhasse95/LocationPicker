@@ -75,7 +75,9 @@ open class LocationPickerViewController: UIViewController {
 				updateAnnotation()
 			}
             
-            self.selectLocationButton?.isEnabled = self.location != nil
+            if self.selectLocationButton?.isHidden ?? false {
+                self.selectLocationButton?.isHidden = self.location == nil
+            }
 		}
 	}
 	
@@ -90,7 +92,6 @@ open class LocationPickerViewController: UIViewController {
 	var currentLocationListeners: [CurrentLocationListener] = []
 	
 	var mapView: MKMapView!
-	var locationButton: UIButton?
     var selectLocationButton: UIButton?
 	
 	lazy var results: LocationSearchResultsViewController = {
@@ -129,29 +130,23 @@ open class LocationPickerViewController: UIViewController {
 		view = mapView
 		
 		if showCurrentLocationButton {
-			let button = UIButton(frame: CGRect(x: 0, y: 0, width: 32, height: 32))
-			button.backgroundColor = currentLocationButtonBackground
-			button.layer.masksToBounds = true
-			button.layer.cornerRadius = 16
-			#if SWIFT_PACKAGE
-			let bundle = Bundle.module
-			#else
-			let bundle = Bundle(for: LocationPickerViewController.self)
-			#endif
-			button.setImage(UIImage(named: "geolocation", in: bundle, compatibleWith: nil), for: UIControl.State())
-			button.addTarget(self, action: #selector(LocationPickerViewController.currentLocationPressed),
-			                 for: .touchUpInside)
-			view.addSubview(button)
-			locationButton = button
+            let buttonItem = MKUserTrackingBarButtonItem(mapView: mapView)
+            self.navigationItem.rightBarButtonItem = buttonItem
 		}
         
         let selectLocationButton = UIButton(type: .system)
-        selectLocationButton.isEnabled = self.location != nil
+        selectLocationButton.isHidden = self.location == nil
+        
         selectLocationButton.layer.cornerRadius = 14
+        selectLocationButton.layer.masksToBounds = true
+        
+        selectLocationButton.backgroundColor = self.view.tintColor
+        
         selectLocationButton.titleLabel?.font = UIFont.systemFont(
             ofSize: 15,
             weight: .semibold)
         selectLocationButton.setTitle(selectButtonTitle, for: UIControl.State())
+        selectLocationButton.setTitleColor(.white, for: UIControl.State())
         selectLocationButton.addTarget(
             self,
             action: #selector(selectLocationButtonClicked(_:)),
@@ -173,12 +168,6 @@ open class LocationPickerViewController: UIViewController {
         selectLocationButton.trailingAnchor.constraint(
             equalTo: self.view.safeAreaLayoutGuide.trailingAnchor, constant: -30)
             .isActive = true
-        
-        let blur = UIVisualEffectView(effect: UIBlurEffect(
-            style: .regular))
-        blur.frame = selectLocationButton.bounds
-        blur.isUserInteractionEnabled = false
-        selectLocationButton.insertSubview(blur, at: 0)
         
         self.selectLocationButton = selectLocationButton
 	}
@@ -230,12 +219,6 @@ open class LocationPickerViewController: UIViewController {
 	
 	open override func viewDidLayoutSubviews() {
 		super.viewDidLayoutSubviews()
-		if let button = locationButton {
-			button.frame.origin = CGPoint(
-				x: view.frame.width - button.frame.width - 16,
-				y: view.frame.height - button.frame.height - 20
-			)
-		}
 		
 		// setting initial location here since viewWillAppear is too early, and viewDidAppear is too late
 		if !presentedInitialLocation {
@@ -266,10 +249,6 @@ open class LocationPickerViewController: UIViewController {
 	func getCurrentLocation() {
 		locationManager.requestWhenInUseAuthorization()
 		locationManager.startUpdatingLocation()
-	}
-	
-    @objc func currentLocationPressed() {
-		showCurrentLocation()
 	}
 	
 	func showCurrentLocation(_ animated: Bool = true) {
@@ -449,7 +428,7 @@ extension LocationPickerViewController: UIGestureRecognizerDelegate {
         _ gestureRecognizer: UIGestureRecognizer,
         shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer)
     -> Bool {
-        return gestureRecognizer.state != .ended
+        return false
     }
 }
 
