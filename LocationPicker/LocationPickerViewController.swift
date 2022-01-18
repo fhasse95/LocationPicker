@@ -406,7 +406,7 @@ extension LocationPickerViewController: MKMapViewDelegate {
 		
 		let marker = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: "annotation")
         marker.animatesWhenAdded = true
-        marker.tintColor = self.view.tintColor
+        marker.glyphTintColor = .white
         
 		return marker
 	}
