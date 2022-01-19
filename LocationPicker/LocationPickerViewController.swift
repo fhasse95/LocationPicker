@@ -124,11 +124,6 @@ open class LocationPickerViewController: UIViewController {
 		mapView = MKMapView(frame: UIScreen.main.bounds)
 		mapView.mapType = mapType
 		view = mapView
-		
-		if showCurrentLocationButton {
-            let buttonItem = MKUserTrackingBarButtonItem(mapView: mapView)
-            self.navigationItem.rightBarButtonItem = buttonItem
-		}
         
         let selectLocationButton = UIButton(type: .system)
         selectLocationButton.isHidden = self.location == nil
@@ -165,6 +160,8 @@ open class LocationPickerViewController: UIViewController {
             .isActive = true
         
         self.selectLocationButton = selectLocationButton
+        
+        self.locationManagerDidChangeAuthorization(self.locationManager)
 	}
 	
 	open override func viewDidLoad() {
@@ -243,7 +240,6 @@ open class LocationPickerViewController: UIViewController {
 	}
 	
 	func getCurrentLocation() {
-		locationManager.requestWhenInUseAuthorization()
 		locationManager.startUpdatingLocation()
 	}
 	
@@ -309,6 +305,7 @@ open class LocationPickerViewController: UIViewController {
     }
 }
 
+// MARK: CLLocationManagerDelegate
 extension LocationPickerViewController: CLLocationManagerDelegate {
 	public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
 		guard let location = locations.first else { return }
@@ -316,6 +313,40 @@ extension LocationPickerViewController: CLLocationManagerDelegate {
 		currentLocationListeners = currentLocationListeners.filter { !$0.once }
 		manager.stopUpdatingLocation()
 	}
+    
+    public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        locationManager.desiredAccuracy = kCLLocationAccuracyBest
+        
+        var isAuthorized = false
+        switch manager.authorizationStatus {
+        case .notDetermined:
+            locationManager.requestAlwaysAuthorization()
+            break
+        case .authorizedWhenInUse:
+            isAuthorized = true
+            locationManager.startUpdatingLocation()
+            break
+        case .authorizedAlways:
+            isAuthorized = true
+            locationManager.startUpdatingLocation()
+            break
+        case .restricted:
+            // restricted by e.g. parental controls. User can't enable Location Services
+            break
+        case .denied:
+            // user denied your app access to Location Services, but can grant access from Settings.app
+            // Hide the right bar button item.
+            self.navigationItem.rightBarButtonItem = nil
+            break
+        default:
+            break
+        }
+        
+        if isAuthorized, showCurrentLocationButton {
+            let buttonItem = MKUserTrackingBarButtonItem(mapView: mapView)
+            self.navigationItem.rightBarButtonItem = buttonItem
+        }
+    }
 }
 
 // MARK: Searching

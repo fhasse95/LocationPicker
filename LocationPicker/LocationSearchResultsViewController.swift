@@ -27,7 +27,7 @@ class LocationSearchResultsViewController: UITableViewController {
 	}
 	
 	override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-		return isShowingHistory ? searchHistoryLabel : nil
+		return isShowingHistory && locations.count > 0 ? searchHistoryLabel : nil
 	}
 
 	override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
