@@ -318,28 +318,32 @@ extension LocationPickerViewController: CLLocationManagerDelegate {
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         
         var isAuthorized = false
-        switch manager.authorizationStatus {
-        case .notDetermined:
-            locationManager.requestAlwaysAuthorization()
-            break
-        case .authorizedWhenInUse:
-            isAuthorized = true
-            locationManager.startUpdatingLocation()
-            break
-        case .authorizedAlways:
-            isAuthorized = true
-            locationManager.startUpdatingLocation()
-            break
-        case .restricted:
-            // restricted by e.g. parental controls. User can't enable Location Services
-            break
-        case .denied:
-            // user denied your app access to Location Services, but can grant access from Settings.app
-            // Hide the right bar button item.
-            self.navigationItem.rightBarButtonItem = nil
-            break
-        default:
-            break
+        if #available(iOS 14.0, *) {
+            switch manager.authorizationStatus {
+            case .notDetermined:
+                locationManager.requestAlwaysAuthorization()
+                break
+            case .authorizedWhenInUse:
+                isAuthorized = true
+                locationManager.startUpdatingLocation()
+                break
+            case .authorizedAlways:
+                isAuthorized = true
+                locationManager.startUpdatingLocation()
+                break
+            case .restricted:
+                // restricted by e.g. parental controls. User can't enable Location Services
+                break
+            case .denied:
+                // user denied your app access to Location Services, but can grant access from Settings.app
+                // Hide the right bar button item.
+                self.navigationItem.rightBarButtonItem = nil
+                break
+            default:
+                break
+            }
+        } else {
+            // Fallback on earlier versions
         }
         
         if isAuthorized, showCurrentLocationButton {
