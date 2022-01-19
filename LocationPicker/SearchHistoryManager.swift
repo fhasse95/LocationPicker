@@ -59,12 +59,13 @@ extension CLLocationCoordinate2D {
 
 extension Location {
 	func toDefaultsDic() -> NSDictionary? {
-		guard let addressDic = placemark.addressDictionary,
-			let placemarkCoordinatesDic = placemark.location?.coordinate.toDefaultsDic()
+        guard let addressDic = placemark?.addressDictionary,
+              let locationCoordinatesDic = location?.coordinate.toDefaultsDic(),
+              let placemarkCoordinatesDic = placemark?.location?.coordinate.toDefaultsDic()
 			else { return nil }
 		
 		var dic: [String: AnyObject] = [
-			LocationDicKeys.locationCoordinates: location.coordinate.toDefaultsDic(),
+			LocationDicKeys.locationCoordinates: locationCoordinatesDic,
 			LocationDicKeys.placemarkAddressDic: addressDic as AnyObject,
 			LocationDicKeys.placemarkCoordinates: placemarkCoordinatesDic
 		]
