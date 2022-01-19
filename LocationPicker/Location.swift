@@ -20,13 +20,13 @@ public class Location: NSObject {
     public let location: CLLocation?
     public let placemark: CLPlacemark?
     
-    public var address: String? {
+    public var address: String {
         let formatter = CNPostalAddressFormatter()
         if let postalAddress = placemark?.postalAddress {
             return formatter.string(from: postalAddress)
         }
         
-        return nil
+        return "\(coordinate.latitude), \(coordinate.longitude)"
     }
     
     public init(name: String? = nil, location: CLLocation? = nil, placemark: CLPlacemark? = nil) {

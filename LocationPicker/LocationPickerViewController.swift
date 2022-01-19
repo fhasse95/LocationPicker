@@ -29,7 +29,7 @@ open class LocationPickerViewController: UIViewController {
 
     /// default: false
     /// Select current location only if `location` property is nil.
-    public var selectCurrentLocationInitially = false
+    public var selectCurrentLocationInitially = true
 	
 	/// see `region` property of `MKLocalSearchRequest`
 	/// default: false
