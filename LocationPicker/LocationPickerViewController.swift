@@ -474,6 +474,8 @@ extension LocationPickerViewController: UISearchResultsUpdating {
         alert.addAction(UIAlertAction(title: self.okButtonTitle, style: .cancel, handler: { _ in }))
         self.present(alert, animated: true) {
             self.mapView.removeAnnotations(self.mapView.annotations)
+            self.location = nil
+            self.selectLocationButton?.isHidden = true
         }
     }
 }
