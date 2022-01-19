@@ -9,6 +9,7 @@
 import UIKit
 import MapKit
 import CoreLocation
+import SystemConfiguration
 
 open class LocationPickerViewController: UIViewController {
 	struct CurrentLocationListener {
@@ -43,6 +44,13 @@ open class LocationPickerViewController: UIViewController {
     
     /// default: "Select"
     public var selectButtonTitle = "Select"
+    
+    /// default: "Error" and "There seems to be no connection to the Internet."
+    public var noInternetConnectionErrorTitle = "Error"
+    public var noInternetConnectionErrorMessage = "There seems to be no connection to the Internet."
+    
+    /// default: "OK"
+    public var okButtonTitle = "OK"
 	
 	public lazy var currentLocationButtonBackground: UIColor = {
 		if let navigationBar = self.navigationController?.navigationBar,
@@ -76,6 +84,36 @@ open class LocationPickerViewController: UIViewController {
 			}
 		}
 	}
+    
+    private var isConnectedToNetwork: Bool {
+        var zeroAddress = sockaddr_in()
+        zeroAddress.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        zeroAddress.sin_family = sa_family_t(AF_INET)
+        
+        guard let defaultRouteReachability = withUnsafePointer(
+            to: &zeroAddress, {
+                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                    SCNetworkReachabilityCreateWithAddress(nil, $0)
+                }
+            })
+        else {
+            return false
+        }
+        
+        var flags: SCNetworkReachabilityFlags = []
+        if !SCNetworkReachabilityGetFlags(defaultRouteReachability, &flags) {
+            return false
+        }
+        
+        if flags.isEmpty {
+            return false
+        }
+        
+        let isReachable = flags.contains(.reachable)
+        let needsConnection = flags.contains(.connectionRequired)
+        
+        return (isReachable && !needsConnection)
+    }
 	
 	static let SearchTermKey = "SearchTermKey"
 	
@@ -265,6 +303,12 @@ open class LocationPickerViewController: UIViewController {
 	}
 
     func selectLocation(location: CLLocation) {
+        // Check if the user is connected to the internet.
+        guard self.isConnectedToNetwork else {
+            self.showNoInternetConnectionErrorDialog()
+            return
+        }
+        
         // add point annotation to map
         let annotation = MKPointAnnotation()
         annotation.coordinate = location.coordinate
@@ -275,7 +319,7 @@ open class LocationPickerViewController: UIViewController {
             if let error = error as NSError?, error.code != 10 { // ignore cancelGeocode errors
                 // show error and remove annotation
                 let alert = UIAlertController(title: nil, message: error.localizedDescription, preferredStyle: .alert)
-                alert.addAction(UIAlertAction(title: "OK", style: .cancel, handler: { _ in }))
+                alert.addAction(UIAlertAction(title: self.okButtonTitle, style: .cancel, handler: { _ in }))
                 self.present(alert, animated: true) {
                     self.mapView.removeAnnotation(annotation)
                 }
@@ -379,6 +423,14 @@ extension LocationPickerViewController: UISearchResultsUpdating {
 	}
 	
     @objc func searchFromTimer(_ timer: Timer) {
+        
+        // Check if the user is connected to the internet.
+        guard self.isConnectedToNetwork else {
+            self.searchController.searchBar.text = nil
+            self.showNoInternetConnectionErrorDialog()
+            return
+        }
+        
 		guard let userInfo = timer.userInfo as? [String: AnyObject],
 			let term = userInfo[LocationPickerViewController.SearchTermKey] as? String
 			else { return }
@@ -415,6 +467,15 @@ extension LocationPickerViewController: UISearchResultsUpdating {
 			self.historyManager.addToHistory(location)
 		}
 	}
+    
+    private func showNoInternetConnectionErrorDialog() {
+        // Show alert and close search.
+        let alert = UIAlertController(title: self.noInternetConnectionErrorTitle, message: self.noInternetConnectionErrorMessage, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: self.okButtonTitle, style: .cancel, handler: { _ in }))
+        self.present(alert, animated: true) {
+            self.mapView.removeAnnotations(self.mapView.annotations)
+        }
+    }
 }
 
 // MARK: Selecting location with gesture
