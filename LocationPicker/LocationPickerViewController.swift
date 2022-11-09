@@ -165,7 +165,11 @@ open class LocationPickerViewController: UIViewController {
         
         let selectLocationButton = UIButton(type: .system)
         selectLocationButton.isHidden = self.location == nil
-        selectLocationButton.backgroundColor = #colorLiteral(red: 0, green: 0.5882352941, blue: 0.5333333333, alpha: 1)
+        if #available(iOS 15.0, *) {
+            selectLocationButton.backgroundColor = .tintColor
+        } else {
+            selectLocationButton.backgroundColor = .systemBlue
+        }
         
         selectLocationButton.layer.cornerRadius = 14
         selectLocationButton.layer.masksToBounds = true
