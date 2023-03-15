@@ -167,7 +167,8 @@ open class LocationPickerViewController: UIViewController {
         selectLocationButton.isHidden = self.location == nil
         if #available(iOS 15.0, *) {
             var configuration = UIButton.Configuration.filled()
-            configuration.cornerStyle = .large
+            configuration.cornerStyle = .capsule
+            configuration.buttonSize = .large
             configuration.baseForegroundColor = .white
             configuration.baseBackgroundColor = .tintColor
             configuration.titleTextAttributesTransformer =
