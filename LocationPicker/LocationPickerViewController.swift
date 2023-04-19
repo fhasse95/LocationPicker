@@ -61,11 +61,9 @@ open class LocationPickerViewController: UIViewController {
     
     /// default: .minimal
     public var searchBarStyle: UISearchBar.Style = .minimal
-    
-    /// default: .default
-    public var statusBarStyle: UIStatusBarStyle = .default
-    
-    @available(iOS 13.0, *)
+
+	/// default: .default
+	public var statusBarStyle: UIStatusBarStyle = .default
     public lazy var searchTextFieldColor: UIColor = .clear
     
     public var mapType: MKMapType = .hybrid {
@@ -247,39 +245,50 @@ open class LocationPickerViewController: UIViewController {
             // http://stackoverflow.com/questions/32675001/uisearchcontroller-warning-attempting-to-load-the-view-of-a-view-controller/
             _ = searchController.view
         }
-        definesPresentationContext = true
         
-        // user location
-        mapView.userTrackingMode = .none
-        mapView.showsUserLocation = showCurrentLocationInitially || showCurrentLocationButton
-        
-        if useCurrentLocationAsHint {
-            getCurrentLocation()
-        }
+		definesPresentationContext = true
+		
+		// user location
+		mapView.userTrackingMode = .none
+		mapView.showsUserLocation = showCurrentLocationInitially || showCurrentLocationButton
+		
+		if useCurrentLocationAsHint {
+			getCurrentLocation()
+		}
+	}
+    
+    open override func viewWillDisappear(_ animated: Bool) {
+        // Resign first responder to avoid the search bar disappearing issue
+        searchController.isActive = false
     }
     
-    open override var preferredStatusBarStyle : UIStatusBarStyle {
-        return statusBarStyle
-    }
-    
-    var presentedInitialLocation = false
-    
-    open override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        
-        // setting initial location here since viewWillAppear is too early, and viewDidAppear is too late
-        if !presentedInitialLocation {
-            setInitialLocation()
-            presentedInitialLocation = true
-        }
-    }
-    
-    func setInitialLocation() {
-        if let location = location {
-            // present initial location if any
-            self.location = location
-            self.selectLocationButton?.isHidden = false
-            showCoordinates(location.coordinate, animated: false)
+	open override var preferredStatusBarStyle : UIStatusBarStyle {
+		return statusBarStyle
+	}
+	
+	var presentedInitialLocation = false
+	
+	open override func viewDidLayoutSubviews() {
+		super.viewDidLayoutSubviews()
+		if let button = locationButton {
+			button.frame.origin = CGPoint(
+				x: view.frame.width - button.frame.width - 16,
+				y: view.frame.height - button.frame.height - 20
+			)
+		}
+		
+		// setting initial location here since viewWillAppear is too early, and viewDidAppear is too late
+		if !presentedInitialLocation {
+			setInitialLocation()
+			presentedInitialLocation = true
+		}
+	}
+	
+	func setInitialLocation() {
+		if let location = location {
+			// present initial location if any
+			self.location = location
+			showCoordinates(location.coordinate, animated: false)
             return
         } else if showCurrentLocationInitially || selectCurrentLocationInitially {
             if selectCurrentLocationInitially {
@@ -516,20 +525,47 @@ extension LocationPickerViewController {
 // MARK: MKMapViewDelegate
 
 extension LocationPickerViewController: MKMapViewDelegate {
-    public func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-        if annotation is MKUserLocation { return nil }
-        
-        let marker = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: "annotation")
-        marker.animatesWhenAdded = true
-        marker.glyphTintColor = .white
-        
-        return marker
-    }
-    
-    public func mapView(_ mapView: MKMapView, didAdd views: [MKAnnotationView]) {
-        let pins = mapView.annotations.filter { $0 is MKPinAnnotationView }
-        assert(pins.count <= 1, "Only 1 pin annotation should be on map at a time")
-        
+	public func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+		if annotation is MKUserLocation { return nil }
+		
+		let pin = MKPinAnnotationView(annotation: annotation, reuseIdentifier: "annotation")
+        if #available(iOS 9.0, *) {
+            pin.pinTintColor = .green
+        } else {
+            pin.pinColor = .green
+        }
+		// drop only on long press gesture
+		let fromLongPress = annotation is MKPointAnnotation
+		pin.animatesDrop = fromLongPress
+		pin.rightCalloutAccessoryView = selectLocationButton()
+		pin.canShowCallout = !fromLongPress
+		return pin
+	}
+	
+	func selectLocationButton() -> UIButton {
+		let button = UIButton(frame: CGRect(x: 0, y: 0, width: 70, height: 30))
+		button.setTitle(selectButtonTitle, for: UIControl.State())
+        if let titleLabel = button.titleLabel {
+            let width = titleLabel.textRect(forBounds: CGRect(x: 0, y: 0, width: Int.max, height: 30), limitedToNumberOfLines: 1).width
+            button.frame.size = CGSize(width: width, height: 30.0)
+        }
+		button.setTitleColor(view.tintColor, for: UIControl.State())
+		return button
+	}
+	
+	public func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView, calloutAccessoryControlTapped control: UIControl) {
+		completion?(location)
+		if let navigation = navigationController, navigation.viewControllers.count > 1 {
+			navigation.popViewController(animated: true)
+		} else {
+			presentingViewController?.dismiss(animated: true, completion: nil)
+		}
+	}
+	
+	public func mapView(_ mapView: MKMapView, didAdd views: [MKAnnotationView]) {
+		let pins = mapView.annotations.filter { $0 is MKPinAnnotationView }
+		assert(pins.count <= 1, "Only 1 pin annotation should be on map at a time")
+
         if let userPin = views.first(where: { $0.annotation is MKUserLocation }) {
             userPin.canShowCallout = false
         }
@@ -537,11 +573,8 @@ extension LocationPickerViewController: MKMapViewDelegate {
 }
 
 extension LocationPickerViewController: UIGestureRecognizerDelegate {
-    public func gestureRecognizer(
-        _ gestureRecognizer: UIGestureRecognizer,
-        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer)
-    -> Bool {
-        return true
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        return false
     }
 }
 
