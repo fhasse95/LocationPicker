@@ -420,16 +420,20 @@ extension LocationPickerViewController: CLLocationManagerDelegate {
         }
         
         if isAuthorized, showCurrentLocationButton {
-            let clearLocationBarButtonItem = UIBarButtonItem(
-                title: NSLocalizedString("form_button_clear_title", comment: ""),
-                style: .plain,
-                target: self,
-                action: #selector(clearLocationButtonClicked(_:)))
+            var items: [UIBarButtonItem] = []
             let showLocationBarButtonItem = MKUserTrackingBarButtonItem(mapView: mapView)
-            self.navigationItem.rightBarButtonItems = [
-                showLocationBarButtonItem,
-                clearLocationBarButtonItem
-            ]
+            items.append(showLocationBarButtonItem)
+            
+            if self.location != nil {
+                let clearLocationBarButtonItem = UIBarButtonItem(
+                    title: NSLocalizedString("form_button_clear_title", comment: ""),
+                    style: .plain,
+                    target: self,
+                    action: #selector(clearLocationButtonClicked(_:)))
+                items.append(clearLocationBarButtonItem)
+            }
+            
+            self.navigationItem.rightBarButtonItems = items
         }
     }
 }
