@@ -357,7 +357,19 @@ open class LocationPickerViewController: UIViewController {
     ///
     /// - Parameter sender: The sender of the event.
     @IBAction func selectLocationButtonClicked(_ sender: Any) {
-        completion?(location)
+        self.completion?(location)
+        if let navigation = navigationController, navigation.viewControllers.count > 1 {
+            navigation.popViewController(animated: true)
+        } else {
+            presentingViewController?.dismiss(animated: true, completion: nil)
+        }
+    }
+    
+    /// Occurs when the clear location button has been clicked.
+    ///
+    /// - Parameter sender: The sender of the event.
+    @IBAction func clearLocationButtonClicked(_ sender: Any) {
+        self.completion?(nil)
         if let navigation = navigationController, navigation.viewControllers.count > 1 {
             navigation.popViewController(animated: true)
         } else {
@@ -398,7 +410,7 @@ extension LocationPickerViewController: CLLocationManagerDelegate {
             case .denied:
                 // user denied your app access to Location Services, but can grant access from Settings.app
                 // Hide the right bar button item.
-                self.navigationItem.rightBarButtonItem = nil
+                self.navigationItem.rightBarButtonItems = nil
                 break
             default:
                 break
@@ -408,8 +420,16 @@ extension LocationPickerViewController: CLLocationManagerDelegate {
         }
         
         if isAuthorized, showCurrentLocationButton {
-            let buttonItem = MKUserTrackingBarButtonItem(mapView: mapView)
-            self.navigationItem.rightBarButtonItem = buttonItem
+            let clearLocationBarButtonItem = UIBarButtonItem(
+                title: NSLocalizedString("form_button_clear_title", comment: ""),
+                style: .plain,
+                target: self,
+                action: #selector(clearLocationButtonClicked(_:)))
+            let showLocationBarButtonItem = MKUserTrackingBarButtonItem(mapView: mapView)
+            self.navigationItem.rightBarButtonItems = [
+                showLocationBarButtonItem,
+                clearLocationBarButtonItem
+            ]
         }
     }
 }
