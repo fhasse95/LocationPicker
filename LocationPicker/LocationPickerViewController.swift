@@ -152,12 +152,6 @@ open class LocationPickerViewController: UIViewController {
         return searchBar
     }()
     
-    deinit {
-        searchTimer?.invalidate()
-        localSearch?.cancel()
-        geocoder.cancelGeocode()
-    }
-    
     open override func loadView() {
         mapView = MKMapView(frame: UIScreen.main.bounds)
         mapView.mapType = mapType
@@ -256,6 +250,44 @@ open class LocationPickerViewController: UIViewController {
         if useCurrentLocationAsHint {
             getCurrentLocation()
         }
+    }
+    
+    open override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        
+        // Remove all delegates.
+        self.locationManager.delegate = nil
+        self.mapView.delegate = nil
+        self.searchBar.delegate = nil
+        self.searchController.delegate = nil
+        self.searchController.searchResultsUpdater = nil
+        
+        // Remove all gesture recognizers.
+        if let recognizers = self.mapView?.gestureRecognizers {
+            for recognizer in recognizers {
+                recognizer.delegate = nil
+                self.mapView.removeGestureRecognizer(recognizer)
+            }
+        }
+        
+        // Remove the map view.
+        self.mapView.mapType = .standard
+        self.mapView.showsUserLocation = false
+        self.mapView.layer.removeAllAnimations()
+        self.mapView.removeAnnotations(self.mapView.annotations)
+        self.mapView.removeOverlays(self.mapView.overlays)
+        self.mapView.removeFromSuperview()
+        self.mapView = nil
+        
+        // Cancel all timers and events.
+        self.searchTimer?.invalidate()
+        self.localSearch?.cancel()
+        self.geocoder.cancelGeocode()
+        
+        // Cleanup all other variables.
+        self.completion = nil
+        self.results.onSelectLocation = nil
+        self.currentLocationListeners.removeAll()
     }
     
     open override var preferredStatusBarStyle : UIStatusBarStyle {
