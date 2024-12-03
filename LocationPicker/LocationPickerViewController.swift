@@ -250,6 +250,11 @@ open class LocationPickerViewController: UIViewController {
         if useCurrentLocationAsHint {
             getCurrentLocation()
         }
+        
+        // Update the UI in order to always show the search bar with full width.
+        if #available(macOS 14.0, iOS 17.0, watchOS 10.0, *) {
+            self.navigationController?.navigationBar.traitOverrides.horizontalSizeClass = .compact
+        }
     }
     
     open override func viewDidDisappear(_ animated: Bool) {
