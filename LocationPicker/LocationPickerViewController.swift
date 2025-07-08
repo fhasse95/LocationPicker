@@ -10,6 +10,7 @@ import UIKit
 import MapKit
 import CoreLocation
 import SystemConfiguration
+import BlurUIKit
 
 open class LocationPickerViewController: UIViewController {
     struct CurrentLocationListener {
@@ -65,13 +66,19 @@ open class LocationPickerViewController: UIViewController {
     /// default: .default
     public var statusBarStyle: UIStatusBarStyle = .default
     
+    open override var preferredStatusBarStyle : UIStatusBarStyle {
+        return self.statusBarStyle
+    }
+    
+    var presentedInitialLocation = false
+    
     @available(iOS 13.0, *)
     public lazy var searchTextFieldColor: UIColor = .clear
     
     public var mapType: MKMapType = .hybrid {
         didSet {
             if isViewLoaded {
-                mapView.mapType = mapType
+                self.mapView.mapType = self.mapType
             }
         }
     }
@@ -79,8 +86,8 @@ open class LocationPickerViewController: UIViewController {
     public var location: Location? {
         didSet {
             if isViewLoaded {
-                searchBar.text = location.flatMap({ $0.title }) ?? ""
-                updateAnnotation()
+                self.searchBar.text = self.location.flatMap({ $0.title }) ?? ""
+                self.updateAnnotation()
             }
         }
     }
@@ -126,7 +133,6 @@ open class LocationPickerViewController: UIViewController {
     var currentLocationListeners: [CurrentLocationListener] = []
     
     var mapView: MKMapView!
-    var selectLocationButton: UIButton?
     
     lazy var results: LocationSearchResultsViewController = {
         let results = LocationSearchResultsViewController()
@@ -147,16 +153,18 @@ open class LocationPickerViewController: UIViewController {
         searchBar.searchBarStyle = self.searchBarStyle
         searchBar.placeholder = self.searchBarPlaceholder
         if #available(iOS 13.0, *) {
-            searchBar.searchTextField.backgroundColor = searchTextFieldColor
+            searchBar.searchTextField.backgroundColor = self.searchTextFieldColor
         }
         return searchBar
     }()
     
-    open override func loadView() {
-        mapView = MKMapView(frame: UIScreen.main.bounds)
-        mapView.mapType = mapType
-        view = mapView
-        
+    lazy var topBlurView: UIView = {
+        let topBlurView = VariableBlurView()
+        topBlurView.direction = .down
+        return topBlurView
+    }()
+    
+    lazy var selectLocationButton: UIButton = {
         let selectLocationButton = UIButton(type: .system)
         selectLocationButton.isHidden = self.location == nil
         if #available(iOS 15.0, *) {
@@ -185,30 +193,50 @@ open class LocationPickerViewController: UIViewController {
             selectLocationButton.setTitleColor(.white, for: UIControl.State())
         }
         
-        selectLocationButton.setTitle(selectButtonTitle, for: UIControl.State())
+        selectLocationButton.setTitle(self.selectButtonTitle, for: UIControl.State())
         selectLocationButton.addTarget(
             self,
-            action: #selector(selectLocationButtonClicked(_:)),
+            action: #selector(self.selectLocationButtonClicked),
             for: .touchUpInside)
         
-        view.addSubview(selectLocationButton)
+        return selectLocationButton
+    }()
+    
+    private var topBlurViewHeightConstraint: NSLayoutConstraint!
+    
+    open override func loadView() {
         
-        // Update constraints.
-        selectLocationButton.translatesAutoresizingMaskIntoConstraints = false
-        selectLocationButton.heightAnchor.constraint(
-            equalToConstant: 50)
-        .isActive = true
-        selectLocationButton.bottomAnchor.constraint(
-            equalTo: self.view.safeAreaLayoutGuide.bottomAnchor, constant: -50)
-        .isActive = true
-        selectLocationButton.leadingAnchor.constraint(
-            equalTo: self.view.safeAreaLayoutGuide.leadingAnchor, constant: 30)
-        .isActive = true
-        selectLocationButton.trailingAnchor.constraint(
-            equalTo: self.view.safeAreaLayoutGuide.trailingAnchor, constant: -30)
-        .isActive = true
+        // Map View
+        self.mapView = MKMapView(frame: UIScreen.main.bounds)
+        self.mapView.mapType = self.mapType
+        self.view = self.mapView
         
-        self.selectLocationButton = selectLocationButton
+        // Top Blur View
+        if #available(iOS 26.0, macOS 26.0, watchOS 26.0, *) {
+            self.view.addSubview(self.topBlurView)
+            
+            self.topBlurView.translatesAutoresizingMaskIntoConstraints = false
+            self.topBlurViewHeightConstraint = self.topBlurView.heightAnchor.constraint(equalToConstant: 0)
+            NSLayoutConstraint.activate([
+                self.topBlurViewHeightConstraint,
+                self.topBlurView.topAnchor.constraint(equalTo: self.view.topAnchor),
+                self.topBlurView.leadingAnchor.constraint(equalTo: self.view.leadingAnchor),
+                self.topBlurView.trailingAnchor.constraint(equalTo: self.view.trailingAnchor)
+            ])
+        }
+        
+        // Select Location Button
+        self.view.addSubview(self.selectLocationButton)
+        self.selectLocationButton.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            self.selectLocationButton.heightAnchor.constraint(equalToConstant: 50),
+            self.selectLocationButton.bottomAnchor.constraint(
+                equalTo: self.view.safeAreaLayoutGuide.bottomAnchor, constant: -50),
+            self.selectLocationButton.leadingAnchor.constraint(
+                equalTo: self.view.safeAreaLayoutGuide.leadingAnchor, constant: 30),
+            self.selectLocationButton.trailingAnchor.constraint(
+                equalTo: self.view.safeAreaLayoutGuide.trailingAnchor, constant: -30)
+        ])
         
         self.locationManagerDidChangeAuthorization(self.locationManager)
     }
@@ -223,36 +251,36 @@ open class LocationPickerViewController: UIViewController {
             navigationItem.scrollEdgeAppearance = appearance
         }
         
-        locationManager.delegate = self
-        mapView.delegate = self
-        searchBar.delegate = self
+        self.locationManager.delegate = self
+        self.mapView.delegate = self
+        self.searchBar.delegate = self
         
         // gesture recognizer for adding by tap
         let locationSelectGesture = UILongPressGestureRecognizer(
-            target: self, action: #selector(addLocation(_:)))
+            target: self, action: #selector(self.addLocation))
         locationSelectGesture.delegate = self
-        mapView.addGestureRecognizer(locationSelectGesture)
+        self.mapView.addGestureRecognizer(locationSelectGesture)
         
         // search
         if #available(iOS 11.0, *) {
-            navigationItem.searchController = searchController
+            navigationItem.searchController = self.searchController
         } else {
-            navigationItem.titleView = searchBar
+            navigationItem.titleView = self.searchBar
             // http://stackoverflow.com/questions/32675001/uisearchcontroller-warning-attempting-to-load-the-view-of-a-view-controller/
-            _ = searchController.view
+            _ = self.searchController.view
         }
         definesPresentationContext = true
         
         // user location
-        mapView.userTrackingMode = .none
-        mapView.showsUserLocation = showCurrentLocationInitially || showCurrentLocationButton
+        self.mapView.userTrackingMode = .none
+        self.mapView.showsUserLocation = self.showCurrentLocationInitially || self.showCurrentLocationButton
         
         if useCurrentLocationAsHint {
-            getCurrentLocation()
+            self.getCurrentLocation()
         }
         
         // Update the UI in order to always show the search bar with full width.
-        if #available(macOS 14.0, iOS 17.0, watchOS 10.0, *) {
+        if #available(iOS 17.0, macOS 14.0, watchOS 10.0, *) {
             self.navigationController?.navigationBar.traitOverrides.horizontalSizeClass = .compact
         }
     }
@@ -295,19 +323,19 @@ open class LocationPickerViewController: UIViewController {
         self.currentLocationListeners.removeAll()
     }
     
-    open override var preferredStatusBarStyle : UIStatusBarStyle {
-        return statusBarStyle
-    }
-    
-    var presentedInitialLocation = false
-    
     open override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         
         // setting initial location here since viewWillAppear is too early, and viewDidAppear is too late
         if !presentedInitialLocation {
-            setInitialLocation()
-            presentedInitialLocation = true
+            self.setInitialLocation()
+            self.presentedInitialLocation = true
+        }
+        
+        // Update the height of the top blur view.
+        if let navBar = self.navigationController?.navigationBar {
+            let navBarFrameInView = navBar.convert(navBar.bounds, to: self.view)
+            self.topBlurViewHeightConstraint.constant = navBarFrameInView.maxY
         }
     }
     
@@ -315,45 +343,48 @@ open class LocationPickerViewController: UIViewController {
         if let location = location {
             // present initial location if any
             self.location = location
-            self.selectLocationButton?.isHidden = false
-            showCoordinates(location.coordinate, animated: false)
+            self.selectLocationButton.isHidden = false
+            self.showCoordinates(location.coordinate, animated: false)
             return
         } else if showCurrentLocationInitially || selectCurrentLocationInitially {
-            if selectCurrentLocationInitially {
+            if self.selectCurrentLocationInitially {
                 let listener = CurrentLocationListener(once: true) { [weak self] location in
                     if self?.location == nil { // user hasn't selected location still
                         self?.selectLocation(location: location)
                     }
                 }
-                currentLocationListeners.append(listener)
+                self.currentLocationListeners.append(listener)
             }
-            showCurrentLocation(false)
+            self.showCurrentLocation(false)
         }
     }
     
     func getCurrentLocation() {
-        locationManager.startUpdatingLocation()
+        self.locationManager.startUpdatingLocation()
     }
     
     func showCurrentLocation(_ animated: Bool = true) {
         let listener = CurrentLocationListener(once: true) { [weak self] location in
             self?.showCoordinates(location.coordinate, animated: animated)
         }
-        currentLocationListeners.append(listener)
-        getCurrentLocation()
+        self.currentLocationListeners.append(listener)
+        self.getCurrentLocation()
     }
     
     func updateAnnotation() {
-        mapView.removeAnnotations(mapView.annotations)
+        self.mapView.removeAnnotations(self.mapView.annotations)
         if let location = location {
-            mapView.addAnnotation(location)
-            mapView.selectAnnotation(location, animated: true)
+            self.mapView.addAnnotation(location)
+            self.mapView.selectAnnotation(location, animated: true)
         }
     }
     
     func showCoordinates(_ coordinate: CLLocationCoordinate2D, animated: Bool = true) {
-        let region = MKCoordinateRegion(center: coordinate, latitudinalMeters: resultRegionDistance, longitudinalMeters: resultRegionDistance)
-        mapView.setRegion(region, animated: animated)
+        let region = MKCoordinateRegion(
+            center: coordinate,
+            latitudinalMeters: self.resultRegionDistance,
+            longitudinalMeters: self.resultRegionDistance)
+        self.mapView.setRegion(region, animated: animated)
     }
     
     func selectLocation(location: CLLocation) {
@@ -383,7 +414,7 @@ open class LocationPickerViewController: UIViewController {
                 
                 // pass user selected location too
                 self.location = Location(name: name, location: location, placemark: placemark)
-                self.selectLocationButton?.isHidden = false
+                self.selectLocationButton.isHidden = false
             }
         }
     }
@@ -419,27 +450,27 @@ open class LocationPickerViewController: UIViewController {
 extension LocationPickerViewController: CLLocationManagerDelegate {
     public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.first else { return }
-        currentLocationListeners.forEach { $0.action(location) }
-        currentLocationListeners = currentLocationListeners.filter { !$0.once }
+        self.currentLocationListeners.forEach { $0.action(location) }
+        self.currentLocationListeners = self.currentLocationListeners.filter { !$0.once }
         manager.stopUpdatingLocation()
     }
     
     public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        locationManager.desiredAccuracy = kCLLocationAccuracyBest
+        self.locationManager.desiredAccuracy = kCLLocationAccuracyBest
         
         var isAuthorized = false
         if #available(iOS 14.0, *) {
             switch manager.authorizationStatus {
             case .notDetermined:
-                locationManager.requestAlwaysAuthorization()
+                self.locationManager.requestAlwaysAuthorization()
                 break
             case .authorizedWhenInUse:
                 isAuthorized = true
-                locationManager.startUpdatingLocation()
+                self.locationManager.startUpdatingLocation()
                 break
             case .authorizedAlways:
                 isAuthorized = true
-                locationManager.startUpdatingLocation()
+                self.locationManager.startUpdatingLocation()
                 break
             case .restricted:
                 // restricted by e.g. parental controls. User can't enable Location Services
@@ -456,9 +487,9 @@ extension LocationPickerViewController: CLLocationManagerDelegate {
             // Fallback on earlier versions
         }
         
-        if isAuthorized, showCurrentLocationButton {
+        if isAuthorized, self.showCurrentLocationButton {
             var items: [UIBarButtonItem] = []
-            let showLocationBarButtonItem = MKUserTrackingBarButtonItem(mapView: mapView)
+            let showLocationBarButtonItem = MKUserTrackingBarButtonItem(mapView: self.mapView)
             items.append(showLocationBarButtonItem)
             
             if self.location != nil {
@@ -466,7 +497,7 @@ extension LocationPickerViewController: CLLocationManagerDelegate {
                     title: NSLocalizedString("form_button_clear_title", comment: ""),
                     style: .plain,
                     target: self,
-                    action: #selector(clearLocationButtonClicked(_:)))
+                    action: #selector(self.clearLocationButtonClicked))
                 items.append(clearLocationBarButtonItem)
             }
             
@@ -481,22 +512,23 @@ extension LocationPickerViewController: UISearchResultsUpdating {
     public func updateSearchResults(for searchController: UISearchController) {
         guard let term = searchController.searchBar.text else { return }
         
-        searchTimer?.invalidate()
+        self.searchTimer?.invalidate()
         
         let searchTerm = term.trimmingCharacters(in: CharacterSet.whitespaces)
         
         if searchTerm.isEmpty {
-            results.locations = historyManager.history()
-            results.isShowingHistory = true
-            results.tableView.reloadData()
+            self.results.locations = self.historyManager.history()
+            self.results.isShowingHistory = true
+            self.results.tableView.reloadData()
         } else {
             // clear old results
-            showItemsForSearchResult(nil)
+            self.showItemsForSearchResult(nil)
             
-            searchTimer = Timer.scheduledTimer(timeInterval: 0.2,
-                                               target: self, selector: #selector(LocationPickerViewController.searchFromTimer(_:)),
-                                               userInfo: [LocationPickerViewController.SearchTermKey: searchTerm],
-                                               repeats: false)
+            self.searchTimer = Timer.scheduledTimer(
+                timeInterval: 0.2,
+                target: self, selector: #selector(LocationPickerViewController.searchFromTimer(_:)),
+                userInfo: [LocationPickerViewController.SearchTermKey: searchTerm],
+                repeats: false)
         }
     }
     
@@ -516,22 +548,25 @@ extension LocationPickerViewController: UISearchResultsUpdating {
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = term
         
-        if let location = locationManager.location, useCurrentLocationAsHint {
-            request.region = MKCoordinateRegion(center: location.coordinate,
-                                                span: MKCoordinateSpan(latitudeDelta: 2, longitudeDelta: 2))
+        if let location = self.locationManager.location, self.useCurrentLocationAsHint {
+            request.region = MKCoordinateRegion(
+                center: location.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 2, longitudeDelta: 2))
         }
         
-        localSearch?.cancel()
-        localSearch = MKLocalSearch(request: request)
-        localSearch!.start { response, _ in
+        self.localSearch?.cancel()
+        self.localSearch = MKLocalSearch(request: request)
+        self.localSearch!.start { response, _ in
             self.showItemsForSearchResult(response)
         }
     }
     
     func showItemsForSearchResult(_ searchResult: MKLocalSearch.Response?) {
-        results.locations = searchResult?.mapItems.map { Location(name: $0.name, placemark: $0.placemark) } ?? []
-        results.isShowingHistory = false
-        results.tableView.reloadData()
+        self.results.locations = searchResult?.mapItems.map {
+            Location(name: $0.name, placemark: $0.placemark)
+        } ?? []
+        self.results.isShowingHistory = false
+        self.results.tableView.reloadData()
     }
     
     func selectedLocation(_ location: Location) {
@@ -539,7 +574,7 @@ extension LocationPickerViewController: UISearchResultsUpdating {
         dismiss(animated: true) {
             // set location, this also adds annotation
             self.location = location
-            self.selectLocationButton?.isHidden = false
+            self.selectLocationButton.isHidden = false
             self.showCoordinates(location.coordinate)
             
             self.historyManager.addToHistory(location)
@@ -553,7 +588,7 @@ extension LocationPickerViewController: UISearchResultsUpdating {
         self.present(alert, animated: true) {
             self.mapView.removeAnnotations(self.mapView.annotations)
             self.location = nil
-            self.selectLocationButton?.isHidden = true
+            self.selectLocationButton.isHidden = true
         }
     }
 }
@@ -563,13 +598,13 @@ extension LocationPickerViewController: UISearchResultsUpdating {
 extension LocationPickerViewController {
     @objc func addLocation(_ gestureRecognizer: UIGestureRecognizer) {
         if gestureRecognizer.state == .began {
-            let point = gestureRecognizer.location(in: mapView)
-            let coordinates = mapView.convert(point, toCoordinateFrom: mapView)
+            let point = gestureRecognizer.location(in: self.mapView)
+            let coordinates = self.mapView.convert(point, toCoordinateFrom: self.mapView)
             let location = CLLocation(latitude: coordinates.latitude, longitude: coordinates.longitude)
             
             // clean location, cleans out old annotation too
             self.location = nil
-            selectLocation(location: location)
+            self.selectLocation(location: location)
         }
     }
 }
@@ -621,7 +656,7 @@ extension LocationPickerViewController: UISearchBarDelegate {
         // remove location if user presses clear or removes text
         if searchText.isEmpty {
             location = nil
-            self.selectLocationButton?.isHidden = true
+            self.selectLocationButton.isHidden = true
             searchBar.text = " "
         }
     }

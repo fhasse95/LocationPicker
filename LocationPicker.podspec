@@ -13,4 +13,5 @@ Pod::Spec.new do |s|
   s.swift_version = '5.0'
   s.ios.deployment_target = '8.0'
   s.requires_arc = true
+  s.dependency 'BlurUIKit'
 end
