@@ -333,9 +333,11 @@ open class LocationPickerViewController: UIViewController {
         }
         
         // Update the height of the top blur view.
-        if let navBar = self.navigationController?.navigationBar {
-            let navBarFrameInView = navBar.convert(navBar.bounds, to: self.view)
-            self.topBlurViewHeightConstraint.constant = navBarFrameInView.maxY + 50
+        if #available(iOS 26.0, macOS 26.0, watchOS 26.0, *) {
+            if let navBar = self.navigationController?.navigationBar {
+                let navBarFrameInView = navBar.convert(navBar.bounds, to: self.view)
+                self.topBlurViewHeightConstraint.constant = navBarFrameInView.maxY + 50
+            }
         }
     }
     
