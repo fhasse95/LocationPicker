@@ -159,16 +159,22 @@ open class LocationPickerViewController: UIViewController {
     }()
     
     lazy var topBlurView: UIView = {
-        let topBlurView = VariableBlurView()
-        topBlurView.direction = .down
-        return topBlurView
+        let result = VariableBlurView()
+        result.direction = .down
+        return result
     }()
     
     lazy var selectLocationButton: UIButton = {
         let selectLocationButton = UIButton(type: .system)
         selectLocationButton.isHidden = self.location == nil
         if #available(iOS 15.0, *) {
-            var configuration = UIButton.Configuration.filled()
+            var configuration: UIButton.Configuration = {
+                if #available(iOS 26.0, macOS 26.0, watchOS 26.0, *) {
+                    return .prominentGlass()
+                } else {
+                    return .tinted()
+                }
+            }()
             configuration.cornerStyle = .capsule
             configuration.buttonSize = .large
             configuration.baseForegroundColor = .white
@@ -282,6 +288,11 @@ open class LocationPickerViewController: UIViewController {
         // Update the UI in order to always show the search bar with full width.
         if #available(iOS 17.0, macOS 14.0, watchOS 10.0, *) {
             self.navigationController?.navigationBar.traitOverrides.horizontalSizeClass = .compact
+        }
+        
+        // Update the search bar allows toolbar integration flag.
+        if #available(iOS 26.0, macOS 26.0, watchOS 26.0, *) {
+            self.navigationItem.searchBarPlacementAllowsToolbarIntegration = false
         }
     }
     
