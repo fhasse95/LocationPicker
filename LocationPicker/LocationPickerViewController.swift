@@ -290,8 +290,9 @@ open class LocationPickerViewController: UIViewController {
             self.navigationController?.navigationBar.traitOverrides.horizontalSizeClass = .compact
         }
         
-        // Update the search bar allows toolbar integration flag.
+        // Update the search bar placement.
         if #available(iOS 26.0, macOS 26.0, watchOS 26.0, *) {
+            self.navigationItem.preferredSearchBarPlacement = .integrated
             self.navigationItem.searchBarPlacementAllowsToolbarIntegration = false
         }
     }
