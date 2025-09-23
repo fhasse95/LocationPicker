@@ -253,8 +253,8 @@ open class LocationPickerViewController: UIViewController {
         if #available(iOS 13.0, *), let navigationController = navigationController {
             let appearance = navigationController.navigationBar.standardAppearance
             appearance.backgroundColor = navigationController.navigationBar.barTintColor
-            navigationItem.standardAppearance = appearance
-            navigationItem.scrollEdgeAppearance = appearance
+            self.navigationItem.standardAppearance = appearance
+            self.navigationItem.scrollEdgeAppearance = appearance
         }
         
         self.locationManager.delegate = self
@@ -269,13 +269,13 @@ open class LocationPickerViewController: UIViewController {
         
         // search
         if #available(iOS 11.0, *) {
-            navigationItem.searchController = self.searchController
+            self.navigationItem.searchController = self.searchController
         } else {
-            navigationItem.titleView = self.searchBar
+            self.navigationItem.titleView = self.searchBar
             // http://stackoverflow.com/questions/32675001/uisearchcontroller-warning-attempting-to-load-the-view-of-a-view-controller/
             _ = self.searchController.view
         }
-        definesPresentationContext = true
+        self.definesPresentationContext = true
         
         // user location
         self.mapView.userTrackingMode = .none
@@ -339,7 +339,7 @@ open class LocationPickerViewController: UIViewController {
         super.viewDidLayoutSubviews()
         
         // setting initial location here since viewWillAppear is too early, and viewDidAppear is too late
-        if !presentedInitialLocation {
+        if !self.presentedInitialLocation {
             self.setInitialLocation()
             self.presentedInitialLocation = true
         }
@@ -351,6 +351,29 @@ open class LocationPickerViewController: UIViewController {
                 self.topBlurViewHeightConstraint.constant = navBarFrameInView.maxY + 50
             }
         }
+        
+        #if targetEnvironment(macCatalyst)
+        if let imageView = self.searchController.searchBar.subView(of: "UIImageView") as? UIImageView,
+           let textField = self.searchController.searchBar.subView(of: "UISearchBarTextField") as? UITextField {
+            
+            // Update the search text field icon and text color on macOS.
+            if let attributedPlaceholder = textField.attributedPlaceholder {
+                let tintColor = textField.isFocused ? UIColor.secondaryLabel : UIColor.label
+                imageView.tintColor = tintColor
+                let mutableAttributedPlaceholder = NSMutableAttributedString(
+                    attributedString: attributedPlaceholder)
+                mutableAttributedPlaceholder.addAttribute(
+                    .foregroundColor, value: tintColor,
+                    range: NSRange(location: 0, length: mutableAttributedPlaceholder.length))
+                textField.attributedPlaceholder = mutableAttributedPlaceholder
+            }
+            
+            // TODO: Currently in macOS 26 the search text field has not the correct height.
+            if #available(macOS 26.0, *) {
+                textField.anchorToSuperview()
+            }
+        }
+        #endif
     }
     
     func setInitialLocation() {
@@ -411,10 +434,10 @@ open class LocationPickerViewController: UIViewController {
         // add point annotation to map
         let annotation = MKPointAnnotation()
         annotation.coordinate = location.coordinate
-        mapView.addAnnotation(annotation)
+        self.mapView.addAnnotation(annotation)
         
-        geocoder.cancelGeocode()
-        geocoder.reverseGeocodeLocation(location) { response, error in
+        self.geocoder.cancelGeocode()
+        self.geocoder.reverseGeocodeLocation(location) { response, error in
             if let error = error as NSError?, error.code != 10 { // ignore cancelGeocode errors
                 // show error and remove annotation
                 let alert = UIAlertController(title: nil, message: error.localizedDescription, preferredStyle: .alert)
@@ -443,7 +466,7 @@ open class LocationPickerViewController: UIViewController {
         if let navigation = navigationController, navigation.viewControllers.count > 1 {
             navigation.popViewController(animated: true)
         } else {
-            presentingViewController?.dismiss(animated: true, completion: nil)
+            self.presentingViewController?.dismiss(animated: true, completion: nil)
         }
     }
     
@@ -455,7 +478,7 @@ open class LocationPickerViewController: UIViewController {
         if let navigation = navigationController, navigation.viewControllers.count > 1 {
             navigation.popViewController(animated: true)
         } else {
-            presentingViewController?.dismiss(animated: true, completion: nil)
+            self.presentingViewController?.dismiss(animated: true, completion: nil)
         }
     }
 }
@@ -659,19 +682,111 @@ extension LocationPickerViewController: UIGestureRecognizerDelegate {
 
 extension LocationPickerViewController: UISearchBarDelegate {
     public func searchBarTextDidBeginEditing(_ searchBar: UISearchBar) {
-        // dirty hack to show history when there is no text in search bar
-        // to be replaced later (hopefully)
         if let text = searchBar.text, text.isEmpty {
-            searchBar.text = " "
+            searchBar.text = self.location?.address ?? " "
         }
     }
     
     public func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
-        // remove location if user presses clear or removes text
         if searchText.isEmpty {
-            location = nil
+            self.location = nil
             self.selectLocationButton.isHidden = true
             searchBar.text = " "
         }
+    }
+}
+
+fileprivate extension UIView {
+    
+    /// Returns the sub view which contains the specified class name.
+    ///
+    /// - Parameter className: The name of the parent view.
+    /// - Returns: The sub view which contains the specified class name.
+    func subView(of className: String) -> UIView? {
+        
+        // Initialize the result.
+        var result: UIView?
+        
+        // First check the view itself.
+        if String(describing: self).contains(className) {
+            return self
+        }
+        
+        // Then check all subviews of the view.
+        for subview in self.subviews {
+            result = subview.subView(of: className)
+            
+            // Return the result if a view has been found.
+            if result != nil {
+                return result
+            }
+        }
+        
+        // Return nil if no view has been found.
+        return nil
+    }
+    
+    /// Adds necessary constraints to anchor this view to the superview.
+    ///
+    /// - Parameters:
+    ///    - edges: The edges to add the constraints to.
+    ///    - useSafeArea: Indicates whether to use the safe area.
+    ///    - padding: Indicates the padding to the superview.
+    func anchorToSuperview(
+        edges: UIRectEdge = .all,
+        useSafeArea: Bool = false,
+        padding: CGFloat = 0) {
+        
+        // Get the current superview.
+        guard let superview = self.superview
+        else {
+            return
+        }
+        
+        // Add new constraints.
+        self.translatesAutoresizingMaskIntoConstraints = false
+        var newAnchorConstraints: [NSLayoutConstraint] = []
+        if edges.contains(.top) || edges.contains(.all) {
+            newAnchorConstraints.append(
+                topAnchor.constraint(
+                    equalTo: useSafeArea ?
+                        superview.safeAreaLayoutGuide.topAnchor :
+                        superview.topAnchor,
+                    constant: padding)
+            )
+        }
+        
+        if edges.contains(.bottom) || edges.contains(.all) {
+            newAnchorConstraints.append(
+                bottomAnchor.constraint(
+                    equalTo: useSafeArea ?
+                        superview.safeAreaLayoutGuide.bottomAnchor :
+                        superview.bottomAnchor,
+                    constant: -padding)
+            )
+        }
+        
+        if edges.contains(.left) || edges.contains(.all) {
+            newAnchorConstraints.append(
+                leadingAnchor.constraint(
+                    equalTo: useSafeArea ?
+                        superview.safeAreaLayoutGuide.leadingAnchor :
+                        superview.leadingAnchor,
+                    constant: padding)
+            )
+        }
+        
+        if edges.contains(.right) || edges.contains(.all) {
+            newAnchorConstraints.append(
+                trailingAnchor.constraint(
+                    equalTo: useSafeArea ?
+                        superview.safeAreaLayoutGuide.trailingAnchor :
+                        superview.trailingAnchor,
+                    constant: -padding)
+            )
+        }
+        
+        // Active the new constraints.
+        NSLayoutConstraint.activate(newAnchorConstraints)
     }
 }
