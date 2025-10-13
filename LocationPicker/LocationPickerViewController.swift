@@ -170,10 +170,10 @@ open class LocationPickerViewController: UIViewController {
         selectLocationButton.isHidden = self.location == nil
         if #available(iOS 15.0, *) {
             var configuration: UIButton.Configuration = {
-                if #available(iOS 26.0, macOS 26.0, watchOS 26.0, *) {
+                if #available(iOS 26.0, macOS 26.0, *) {
                     return .prominentGlass()
                 } else {
-                    return .tinted()
+                    return .filled()
                 }
             }()
             configuration.cornerStyle = .capsule
