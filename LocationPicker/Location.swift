@@ -22,11 +22,11 @@ public class Location: NSObject {
     
     public var address: String {
         let formatter = CNPostalAddressFormatter()
-        if let postalAddress = placemark?.postalAddress {
+        if let postalAddress = self.placemark?.postalAddress {
             return formatter.string(from: postalAddress)
         }
         
-        return "\(coordinate.latitude), \(coordinate.longitude)"
+        return "\(self.coordinate.latitude), \(self.coordinate.longitude)"
     }
     
     public init(name: String? = nil, location: CLLocation? = nil, placemark: CLPlacemark? = nil) {
@@ -40,10 +40,10 @@ import MapKit
 
 extension Location: MKAnnotation {
     @objc public var coordinate: CLLocationCoordinate2D {
-        return location?.coordinate ?? CLLocationCoordinate2D()
+        return self.location?.coordinate ?? CLLocationCoordinate2D()
     }
     
     public var title: String? {
-        return name ?? address
+        return self.name ?? self.address
     }
 }

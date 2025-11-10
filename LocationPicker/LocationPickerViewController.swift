@@ -447,11 +447,8 @@ open class LocationPickerViewController: UIViewController {
                     self.mapView.removeAnnotation(annotation)
                 }
             } else if let placemark = response?.first {
-                // get POI name from placemark if any
-                let name = placemark.areasOfInterest?.first
-                
                 // pass user selected location too
-                self.location = Location(name: name, location: location, placemark: placemark)
+                self.location = Location(location: location, placemark: placemark)
                 self.selectLocationButton.isHidden = false
             }
         }
