@@ -287,9 +287,11 @@ open class LocationPickerViewController: UIViewController {
         }
         
         // Update the UI in order to always show the search bar with full width.
+        #if !targetEnvironment(macCatalyst)
         if #available(iOS 17.0, macOS 14.0, watchOS 10.0, *) {
             self.navigationController?.navigationBar.traitOverrides.horizontalSizeClass = .compact
         }
+        #endif
         
         // Update the search bar placement.
         if #available(iOS 26.0, macOS 26.0, watchOS 26.0, *) {
