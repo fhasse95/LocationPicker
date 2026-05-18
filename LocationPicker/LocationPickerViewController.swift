@@ -282,20 +282,20 @@ open class LocationPickerViewController: UIViewController {
         self.mapView.userTrackingMode = .none
         self.mapView.showsUserLocation = self.showCurrentLocationInitially || self.showCurrentLocationButton
         
-        if useCurrentLocationAsHint {
+        if self.useCurrentLocationAsHint {
             self.getCurrentLocation()
         }
         
         // Update the UI in order to always show the search bar with full width.
         #if !targetEnvironment(macCatalyst)
-        if #available(iOS 17.0, macOS 14.0, watchOS 10.0, *) {
+        if #available(iOS 17.0, macOS 14.0, *) {
             self.navigationController?.navigationBar.traitOverrides.horizontalSizeClass = .compact
         }
         #endif
         
         // Update the search bar placement.
-        if #available(iOS 26.0, macOS 26.0, watchOS 26.0, *) {
-            self.navigationItem.preferredSearchBarPlacement = .integrated
+        if #available(iOS 26.0, macOS 26.0, *) {
+            self.navigationItem.preferredSearchBarPlacement = .integratedButton
             self.navigationItem.searchBarPlacementAllowsToolbarIntegration = false
         }
     }
